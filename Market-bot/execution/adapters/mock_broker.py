@@ -13,7 +13,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Tuple, Optional
-from domain_models import Order, Trade, MarketTicker, Position, PortfolioState
+from domain.models.market_state import Order, Trade, MarketTicker, Position, PortfolioState
 
 FEE_RATE = 0.0006  # 假设手续费率 0.06% per trade (示例)
 

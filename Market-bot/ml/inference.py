@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from typing import Tuple, Any, Dict, List, Optional
-from domain_models import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
+from domain.models.market_state import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
 from datetime import datetime
 
 MODEL_FILENAME_DEFAULT = "ml_decision_model.joblib"
