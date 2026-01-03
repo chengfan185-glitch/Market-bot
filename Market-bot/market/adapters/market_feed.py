@@ -14,13 +14,15 @@ from datetime import datetime, timezone
 from typing import List, Dict
 import random
 
-from market.adapters.market_feed import OnChainFetcher, PriceFetcher, CEXFetcher
+# Fix: Import domain types directly from domain.models.market_state to avoid circular import
+from domain.models.market_state import PoolObservation, MarketTicker, MarketContext
 
 
 # --------- OnChainFetcher (Subgraph / RPC) ----------
 class OnChainFetcher:
-    def __init__(self):
-        pass
+    # Fix: Accept optional subgraph_url parameter to match how pipeline/runner constructs it
+    def __init__(self, subgraph_url=None):
+        self.subgraph_url = subgraph_url  # For future real implementation
 
     def fetch_pool(self, pool_id: str) -> PoolObservation:
         # Mock: 返回稳定的示例数据（本地测试）
@@ -53,9 +55,13 @@ class PriceFetcher:
 
 # --------- CEXFetcher (ccxt) ----------
 class CEXFetcher:
-    def __init__(self):
-        # In real env: import ccxt; self.binance = ccxt.binance()
-        pass
+    # Fix: Accept optional exchange_id, api_key, api_secret kwargs to match how pipeline/runner constructs it
+    # Keep lazy - do not import ccxt at module level to allow mock mode without ML dependencies
+    def __init__(self, exchange_id=None, api_key=None, api_secret=None):
+        self.exchange_id = exchange_id
+        self.api_key = api_key
+        self.api_secret = api_secret
+        # In real env: import ccxt; self.exchange = getattr(ccxt, exchange_id)({'apiKey': api_key, 'secret': api_secret})
 
     def fetch_ticker(self, symbol: str) -> MarketTicker:
         # Mock: 返回示例ticker

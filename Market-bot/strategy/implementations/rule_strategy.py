@@ -5,8 +5,8 @@ DecisionEngine: 支持 ML 推理与规则回退，统一返回 Action enum 与 o
 - 否则回退到可解释规则（legacy rules）。
 """
 from typing import Tuple, Optional, Dict
-from domain_models import StrategySnapshot, Action
-from ml_model import MLDecisionModel
+from domain.models.market_state import StrategySnapshot, Action
+# ML will be lazily imported when needed (ml_model may be None)
 
 # 小型规则回退（保留之前逻辑）
 DEFAULT_PARAMS = {
@@ -19,7 +19,7 @@ DEFAULT_PARAMS = {
 }
 
 class DecisionEngine:
-    def __init__(self, ml_model: Optional[MLDecisionModel] = None, params: dict = None):
+    def __init__(self, ml_model: Optional = None, params: dict = None):
         self.ml_model = ml_model
         self.params = params or DEFAULT_PARAMS
 
