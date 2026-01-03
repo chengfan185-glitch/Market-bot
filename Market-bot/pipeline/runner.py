@@ -58,19 +58,18 @@ from strategy.implementations.rule_strategy import DecisionEngine
 from risk.implementations.basic_risk import RiskManager
 from execution.adapters.mock_broker import ExecutionEngine
 
-# -------------------------------------------------
-# ML (optional)
-# -------------------------------------------------
-from ml.inference import MLDecisionModel
-
 # =================================================
 # Load ML model (optional)
+# Lazy import: only load MLDecisionModel if model file exists
+# This prevents requiring ML dependencies in pure mock mode
 # =================================================
 ml_model = None
 model_path = os.environ.get("MODEL_PATH", "ml_decision_model.joblib")
 
 if os.path.exists(model_path):
     try:
+        # Lazy import: only import when model file exists
+        from ml.inference import MLDecisionModel
         ml_model = MLDecisionModel.load(model_path)
         print(f"[ML] Loaded model from {model_path}")
     except Exception as e:
