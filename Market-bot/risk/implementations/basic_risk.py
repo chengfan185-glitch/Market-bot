@@ -5,7 +5,7 @@
 - 提供仓位更新与回撤计算接口
 """
 
-from domain_models import PortfolioState, Position, Trade
+from domain.models.market_state import PortfolioState, Position, Trade
 from typing import Tuple
 from datetime import datetime, timezone
 

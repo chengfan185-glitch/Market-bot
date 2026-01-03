@@ -11,16 +11,20 @@
 """
 
 from datetime import datetime, timezone
-from typing import List, Dict
+from typing import List, Dict, Optional
 import random
 
-from market.adapters.market_feed import OnChainFetcher, PriceFetcher, CEXFetcher
+# Import domain models needed for type hints and return values
+from domain.models.market_state import PoolObservation, MarketTicker, MarketContext
+
+# NOTE: Removed circular self-import that was causing ImportError
 
 
 # --------- OnChainFetcher (Subgraph / RPC) ----------
 class OnChainFetcher:
-    def __init__(self):
-        pass
+    def __init__(self, subgraph_url: Optional[str] = None):
+        # Accept optional subgraph_url parameter for compatibility with runner.py
+        self.subgraph_url = subgraph_url
 
     def fetch_pool(self, pool_id: str) -> PoolObservation:
         # Mock: 返回稳定的示例数据（本地测试）
@@ -53,9 +57,17 @@ class PriceFetcher:
 
 # --------- CEXFetcher (ccxt) ----------
 class CEXFetcher:
-    def __init__(self):
+    def __init__(
+        self,
+        exchange_id: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_secret: Optional[str] = None,
+    ):
+        # Accept optional parameters for CEX configuration (for compatibility with runner.py)
         # In real env: import ccxt; self.binance = ccxt.binance()
-        pass
+        self.exchange_id = exchange_id
+        self.api_key = api_key
+        self.api_secret = api_secret
 
     def fetch_ticker(self, symbol: str) -> MarketTicker:
         # Mock: 返回示例ticker
