@@ -7,11 +7,8 @@ ML 模型封装：训练 / 保存 / 加载 / 在线推理
 - 可从 Mongo (collection of StrategyCase documents) 或 JSONL 训练
 """
 import os
-import joblib
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
+# Lazy imports: heavy ML dependencies imported only when needed
+# import joblib, numpy, pandas, sklearn - moved to method level
 from typing import Tuple, Any, Dict, List, Optional
 from domain_models import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
 from datetime import datetime
@@ -20,6 +17,10 @@ MODEL_FILENAME_DEFAULT = "ml_decision_model.joblib"
 
 class MLDecisionModel:
     def __init__(self, model=None, scaler=None):
+        # Lazy import sklearn only when creating model instance
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.preprocessing import StandardScaler
+        
         self.model = model or RandomForestClassifier(n_estimators=100, random_state=42)
         self.scaler = scaler or StandardScaler()
         self.is_fitted = False
@@ -77,7 +78,10 @@ class MLDecisionModel:
     # ----------------------------
     # 训练：接受 DataFrame 或 X,y arrays
     # ----------------------------
-    def fit(self, X: pd.DataFrame, y: pd.Series):
+    def fit(self, X, y):
+        # Lazy import pandas (only needed for training)
+        import pandas as pd
+        
         X_num = X.fillna(0.0).astype(float)
         self.scaler.fit(X_num)
         Xs = self.scaler.transform(X_num)
@@ -90,6 +94,10 @@ class MLDecisionModel:
         online predict: 返回 (Action, confidence_score)
         confidence_score: 对应预测类别的概率
         """
+        # Lazy imports
+        import pandas as pd
+        import numpy as np
+        
         if not self.is_fitted:
             raise RuntimeError("Model not fitted. Call load() or fit() first.")
 
@@ -108,6 +116,9 @@ class MLDecisionModel:
         return action, confidence
 
     def predict_proba(self, snapshot: StrategySnapshot, target_pool_id: Optional[str] = None) -> Dict[Action, float]:
+        # Lazy import pandas
+        import pandas as pd
+        
         if not self.is_fitted:
             raise RuntimeError("Model not fitted.")
         feat = self.extract_features_from_snapshot(snapshot, target_pool_id)
@@ -123,10 +134,14 @@ class MLDecisionModel:
     # IO
     # ----------------------------
     def save(self, path: str = MODEL_FILENAME_DEFAULT):
+        # Lazy import joblib
+        import joblib
         joblib.dump({"model": self.model, "scaler": self.scaler}, path)
 
     @classmethod
     def load(cls, path: str = MODEL_FILENAME_DEFAULT):
+        # Lazy import joblib
+        import joblib
         data = joblib.load(path)
         inst = cls(model=data["model"], scaler=data["scaler"])
         inst.is_fitted = True
@@ -137,7 +152,10 @@ class MLDecisionModel:
     # 支持：list of dicts (raw doc), 每个 doc 为 case.to_mongo_dict(...)
     # ----------------------------
     @staticmethod
-    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, pd.Series]:
+    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]):
+        # Lazy import pandas
+        import pandas as pd
+        
         rows = []
         ys = []
         for d in docs:
