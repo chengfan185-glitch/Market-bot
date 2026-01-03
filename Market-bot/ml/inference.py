@@ -5,24 +5,63 @@ ML 模型封装：训练 / 保存 / 加载 / 在线推理
 - 输入特征由 PoolFeatures + CapitalFeatures + MarketContext 组合而成（可扩展）
 - 输出为 Action enum（HOLD/LONG/SHORT）
 - 可从 Mongo (collection of StrategyCase documents) 或 JSONL 训练
+
+NOTE: ML dependencies (sklearn, numpy, pandas, joblib) are imported lazily to allow
+the project to run in mock mode without these packages installed.
 """
 import os
-import joblib
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
-from typing import Tuple, Any, Dict, List, Optional
-from domain_models import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
+from typing import Tuple, Any, Dict, List, Optional, TYPE_CHECKING
+from domain.models.market_state import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
 from datetime import datetime
+
+# Use TYPE_CHECKING to provide proper type hints without runtime imports
+if TYPE_CHECKING:
+    import pandas as pd
 
 MODEL_FILENAME_DEFAULT = "ml_decision_model.joblib"
 
+
+def _import_ml_deps():
+    """Lazy import of ML dependencies to allow running without them installed."""
+    import joblib
+    import numpy as np
+    import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.preprocessing import StandardScaler
+    return joblib, np, pd, RandomForestClassifier, StandardScaler
+
+
 class MLDecisionModel:
     def __init__(self, model=None, scaler=None):
-        self.model = model or RandomForestClassifier(n_estimators=100, random_state=42)
-        self.scaler = scaler or StandardScaler()
+        # Lazy init: only import ML deps and create defaults when actually needed
+        # This allows the class to be imported without ML dependencies installed
+        self._model = model
+        self._scaler = scaler
         self.is_fitted = False
+
+    @property
+    def model(self):
+        """Lazy initialization of the model."""
+        if self._model is None:
+            _, _, _, RandomForestClassifier, _ = _import_ml_deps()
+            self._model = RandomForestClassifier(n_estimators=100, random_state=42)
+        return self._model
+
+    @model.setter
+    def model(self, value):
+        self._model = value
+
+    @property
+    def scaler(self):
+        """Lazy initialization of the scaler."""
+        if self._scaler is None:
+            _, _, _, _, StandardScaler = _import_ml_deps()
+            self._scaler = StandardScaler()
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, value):
+        self._scaler = value
 
     # ----------------------------
     # 特征工程：把一个 StrategyCase / Snapshot 转为向量
@@ -77,7 +116,10 @@ class MLDecisionModel:
     # ----------------------------
     # 训练：接受 DataFrame 或 X,y arrays
     # ----------------------------
-    def fit(self, X: pd.DataFrame, y: pd.Series):
+    def fit(self, X, y):
+        """Train the model. X should be a pandas DataFrame, y should be a Series."""
+        # Lazy import ML dependencies when actually training
+        _, _, pd, _, _ = _import_ml_deps()
         X_num = X.fillna(0.0).astype(float)
         self.scaler.fit(X_num)
         Xs = self.scaler.transform(X_num)
@@ -92,6 +134,9 @@ class MLDecisionModel:
         """
         if not self.is_fitted:
             raise RuntimeError("Model not fitted. Call load() or fit() first.")
+
+        # Lazy import ML dependencies when actually predicting
+        _, np, pd, _, _ = _import_ml_deps()
 
         feat = self.extract_features_from_snapshot(snapshot, target_pool_id)
         if not feat:
@@ -110,6 +155,10 @@ class MLDecisionModel:
     def predict_proba(self, snapshot: StrategySnapshot, target_pool_id: Optional[str] = None) -> Dict[Action, float]:
         if not self.is_fitted:
             raise RuntimeError("Model not fitted.")
+
+        # Lazy import ML dependencies when actually predicting
+        _, _, pd, _, _ = _import_ml_deps()
+
         feat = self.extract_features_from_snapshot(snapshot, target_pool_id)
         if not feat:
             return {Action.HOLD: 1.0}
@@ -123,10 +172,14 @@ class MLDecisionModel:
     # IO
     # ----------------------------
     def save(self, path: str = MODEL_FILENAME_DEFAULT):
-        joblib.dump({"model": self.model, "scaler": self.scaler}, path)
+        # Lazy import joblib when saving
+        joblib, _, _, _, _ = _import_ml_deps()
+        joblib.dump({"model": self._model, "scaler": self._scaler}, path)
 
     @classmethod
     def load(cls, path: str = MODEL_FILENAME_DEFAULT):
+        # Lazy import joblib when loading
+        joblib, _, _, _, _ = _import_ml_deps()
         data = joblib.load(path)
         inst = cls(model=data["model"], scaler=data["scaler"])
         inst.is_fitted = True
@@ -137,7 +190,10 @@ class MLDecisionModel:
     # 支持：list of dicts (raw doc), 每个 doc 为 case.to_mongo_dict(...)
     # ----------------------------
     @staticmethod
-    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, pd.Series]:
+    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]) -> Tuple["pd.DataFrame", "pd.Series"]:
+        # Lazy import pandas when building dataset
+        _, _, pd, _, _ = _import_ml_deps()
+
         rows = []
         ys = []
         for d in docs:
@@ -146,8 +202,8 @@ class MLDecisionModel:
             try:
                 sc = StrategyCase.from_dict(d)
             except Exception:
-                # best-effort attempt if doc already dict with camelCase
-                sc = StrategyCase.from_dict(d)
+                # Skip documents that cannot be parsed
+                continue
             # target action: try to read sc.decision and map to Action
             lab = sc.decision
             try:
