@@ -10,9 +10,13 @@ NOTE: ML dependencies (sklearn, numpy, pandas, joblib) are imported lazily to al
 the project to run in mock mode without these packages installed.
 """
 import os
-from typing import Tuple, Any, Dict, List, Optional
+from typing import Tuple, Any, Dict, List, Optional, TYPE_CHECKING
 from domain.models.market_state import Action, StrategyCase, StrategySnapshot, PoolFeatures, CapitalFeatures, MarketContext
 from datetime import datetime
+
+# Use TYPE_CHECKING to provide proper type hints without runtime imports
+if TYPE_CHECKING:
+    import pandas as pd
 
 MODEL_FILENAME_DEFAULT = "ml_decision_model.joblib"
 
@@ -186,7 +190,7 @@ class MLDecisionModel:
     # 支持：list of dicts (raw doc), 每个 doc 为 case.to_mongo_dict(...)
     # ----------------------------
     @staticmethod
-    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]) -> Tuple[Any, Any]:
+    def build_dataset_from_case_docs(docs: List[Dict[str, Any]]) -> Tuple["pd.DataFrame", "pd.Series"]:
         # Lazy import pandas when building dataset
         _, _, pd, _, _ = _import_ml_deps()
 
@@ -198,8 +202,8 @@ class MLDecisionModel:
             try:
                 sc = StrategyCase.from_dict(d)
             except Exception:
-                # best-effort attempt if doc already dict with camelCase
-                sc = StrategyCase.from_dict(d)
+                # Skip documents that cannot be parsed
+                continue
             # target action: try to read sc.decision and map to Action
             lab = sc.decision
             try:
